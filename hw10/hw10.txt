@@ -1,0 +1,84 @@
+1. 
+uptime
+Вывод: 13:45:39 up 1 min,  2 users,  load average: 0,07, 0,05, 0,01
+
+Описание:
+Команда отображает: время работы операционной системы и среднее количество обращений процессов к ядру ОС за ресурсами, которые ещё не выданы за последние 1, 5 и 15 мин
+В ВМ у меня 2 ядра и показатель до 2 является нормой - система не нагружена
+
+
+free -h
+Вывод:
+               total        used        free      shared  buff/cache   available
+Mem:           1,9Gi       324Mi       1,5Gi       1,1Mi       299Mi       1,6Gi
+Swap:          2,0Gi          0B       2,0Gi
+
+Описание:
+Информация по использованию памяти и файла подкачки
+
+df -h
+Вывод:
+Filesystem                         Size  Used Avail Use% Mounted on
+tmpfs                              197M  1,1M  196M   1% /run
+/dev/mapper/ubuntu--vg-ubuntu--lv  115G  9,1G  101G   9% /
+tmpfs                              984M     0  984M   0% /dev/shm
+tmpfs                              5,0M     0  5,0M   0% /run/lock
+/dev/sda2                          2,0G  192M  1,6G  11% /boot
+tmpfs                              197M   16K  197M   1% /run/user/1000
+
+Описание:
+Команда отображает информацию о смонтированных файловых система и занятом месте
+
+ss -tlnp или netstat -tlnp
+Вывод:
+State     Recv-Q    Send-Q       Local Address:Port        Peer Address:Port    Process
+LISTEN    0         4096            127.0.0.54:53               0.0.0.0:*        users:(("systemd-resolve",pid=697,fd=17))
+LISTEN    0         4096         127.0.0.53%lo:53               0.0.0.0:*        users:(("systemd-resolve",pid=697,fd=15))
+Описание: отображает сетевые подключения
+
+
+LISTEN    0         4096               0.0.0.0:22               0.0.0.0:*        users:(("sshd",pid=1191,fd=3),("systemd",pid=1,fd=90))
+LISTEN    0         4096                  [::]:22                  [::]:*        users:(("sshd",pid=1191,fd=4),("systemd",pid=1,fd=91))
+
+
+
+yes > /dev/null & Запустить в фоне процесс
+top -b -n 1 | head -10 вывести первые 10 строк вывода top
+Процесс    1362 root      20   0    5684   2048   1932 R 100,0   0,1   1:11.95 yes
+Процесс загружающий ID процессора 1362
+
+journalctl -n 15 --no-pager (выведет 15 последних команд системного лога без использования просмотрщика)
+
+root@l:/home/sergey# journalctl -p err --since "1 hour ago"
+-- No entries --
+За последний час не было сообщений с приоритетом err или выше (т.е. err, crit, alert, emerg)
+
+3) journalctl -u ssh --since "10 min ago" --no-pager
+апр 05 20:09:55 l systemd[1]: Starting ssh.service - OpenBSD Secure Shell server...
+апр 05 20:09:55 l sshd[26216]: Server listening on 0.0.0.0 port 22.
+апр 05 20:09:55 l sshd[26216]: Server listening on :: port 22.
+апр 05 20:09:55 l systemd[1]: Started ssh.service - OpenBSD Secure Shell server.
+апр 05 20:10:08 l sshd[26218]: Accepted password for sergey from 192.168.0.12 port 53161 ssh2
+апр 05 20:10:08 l sshd[26218]: pam_unix(sshd:session): session opened for user sergey(uid=1000) by sergey(uid=0)
+
+
+###3.
+systemctl is-active ssh
+active
+Команда отображает запущен или остановлен сервис
+
+systemctl is-enabled ssh
+disabled
+Команда отображает установлен сервис
+
+###4.
+ps -eo pid,ppid,comm,user --sort=-pid|head -25 
+ 26366   26365 bash            root
+ 26365   26364 sudo            root
+ 
+ ps -p 26436 -o pid,ppid,state,cmd
+    PID    PPID S CMD
+  26436   26366 S sleep 300
+Поток использует память процесса и имеет ppid родительского процесса
+ 
+
