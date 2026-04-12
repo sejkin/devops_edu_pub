@@ -1,0 +1,72 @@
+Резервное копирование:
+1. Критичными данными считаются презентации, данные с домашними заданиями и выполненными работами.
+2. Еженедельный полный бекап всей файловой папки. Ежедневные инкрементные бекапы. Ежедневные копии баз данных.
+3. Копии будут храниться удалённо.
+4. Целевой RPO 24 часа . Целевой RTO 1 час.
+
+2. Практика:
+1. Копия /etc и выбранной рабочей директории через rsync
+
+rsync -aHAX --delete /etc /opt/devops-data /tmp/backup/
+
+В /tmp/backup/ создались два каталога. Копии /etc и /opt/devops-data
+
+2. Создать архив tar для etc
+tar -czf "/tmp/backup/etc-$(date +%F-%H%M%S).tar.gz" -C /etc .
+
+Здесь -C переходит в папку, а . означает запаковать текущее содержимое без ведущего слэша. Без ключа -C выходила ошибка tar: Removing leading `/' from member
+
+В итоге создан архив
+-rw-r--r--   1 root root 627392 апр 12 16:25 etc-2026-04-12-162521.tar.gz
+
+3. 
+TS="$(date +%F-%H%M%S)"
+tar -czf "/tmp/backup/etc-$TS.tar.gz" -C /etc .
+sha256sum "/tmp/backup/etc-$TS.tar.gz" > "/tmp/backup/etc-$TS.tar.gz.sha256"
+
+В итоге для архива создаётся файл с контрольной суммой
+-rw-r--r--   1 root root    107 апр 12 16:31 etc-2026-04-12-163158.tar.gz.sha256
+Содержит значение применения хэш функции и путь к файлу:
+7d900e8f3e1b30c994441ae8dd252a2023acdd0e6c091f471244e47baa0c6a08  /tmp/backup/etc-2026-04-12-163158.tar.gz
+
+Разархивирование
+mkdir /tmp/restore                                          
+tar -xzf /tmp/backup/etc-2026-04-12-163158.tar.gz -C /tmp/restore
+
+Сравнение через diff не выявило расхождений
+Просмотр через ls -la
+la -la passwd
+-rw-r--r-- 1 root root 1782 фев 12 20:13 passwd
+root@l:/tmp/restore# la -la /etc/passwd
+-rw-r--r-- 1 root root 1782 фев 12 20:13 /etc/passwd
+
+
+
+#backup.service Находится в /usr/lib/systemd/system/
+__________________________________________
+[Unit]
+Description=Run local backup script
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/backup-etc.sh
+
+__________________________________________
+Запускает скрипт
+/opt/scripts/backup-etc.sh
+
+и backup.timer
+
+[Unit]
+Description=Run backup daily
+
+[Timer]
+OnCalendar=*-*-* 21:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+
+при enable --now сразу не выполнился. Только после systemctl daemon-reload
+
+Persistent=true означает, что если система была выключена в запланированное время запуска задачи, она автоматически выполнится сразу после следующего включения для предотвращения пропуска важных фоновых задач.
