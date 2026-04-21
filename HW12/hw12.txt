@@ -1,0 +1,88 @@
+HW12
+
+1) Посчитать число запросов с мобильных устройств (User-Agent: Android, iPhone? Mobile, iPad) и десктопа. Вывести сводку
+grep -oPi '(iPhone|Android|win|iPad)' ./access.log | sort | uniq -c
+ 130856 Android
+ 209964 Win
+  25858 iPad
+ 105128 iPhone
+2) Запросы опасными путями: '/.env', '/wp-admin' , '/admin' , 'config.php' , 'git'. Вывести количество таких запросов по топ IP по числу таких запросов.
+
+Решение:
+grep -Pi '(./env|./wp-admin|./admin|.config.php|.git)' ./access.log | awk '{print $1}' | sort | uniq -c | sort -rn | head -10
+    210 172.16.0.18
+    209 192.168.1.1
+    206 192.168.1.57
+    204 203.0.113.28
+    202 203.0.113.54
+    202 192.168.1.5
+    202 192.168.1.217
+    200 203.0.113.90
+    200 203.0.113.29
+    200 192.168.1.218
+
+
+3) Для каждого IP посчитать сколько запросов вернуло 4** и сколько 5**. Вывести топ 10 ip по сумме ошибок 4**+5** или отдельно по топ 500
+
+#Для каждого ip
+grep -iP '\" [4-5][0-9][0-9]' access.log | sed 's/ 4[0-9][0-9] / 4** /g' | sed 's/ 5[0-9][0-9] / 5** /g'| awk '{count[$1" "$9]++} END {for (k in count) print k, count[k]}' | sort -n -k1,2
+
+#топ 10 ip по сумме ошибок 4**+5**
+grep -iP '\" [4-5][0-9][0-9]' access.log | sed 's/ 4[0-9][0-9] / 4** /g' | sed 's/ 5[0-9][0-9] / 5** /g'| awk '{count[$1]++} END {for (k in count) print k, count[k]}' | sort -nrk2 | head -10
+
+#топ 10 ip отдельно по топ 500
+grep -iP '\" [5][0-9][0-9]' access.log | sed 's/ 5[0-9][0-9] / 5** /g'| awk '{count[$1]++} END {for (k in count) print k, count[k]}' | sort -nrk2 | head -10
+
+
+4) Выявить проблемных клиентов или атак (много 403/404 - сканирование, много 5** - возможно перегрузка или целевая атака)
+grep -iP '\" ([4][0][3-4]|[5][0-9][0-9])' access.log
+
+grep -iP '\" ([4][0][3-4]|[5][0-9][0-9])' access.log | awk '{print $1,$9}' | uniq -c | sort -r | head
+
+5) 
+
+ДЗ Скрипт
+Напишите одну функцию на Bash, которая принимает путь к 'access.log' и выводит топ-5 IP по числу запросов. Используйте внутри цикла по массиву строк (прочитайте файл в массив через readarray) и ассоциативный массив для подсчёта. Сравните результат с однострочником из задачек, что эффективней и почему.
+
+#!/usr/bin/env bash
+top5_from_log() {
+  local logfile="$1"
+  if [[ ! -f "$logfile" ]]; then
+    echo "File not found: $logfile" >&2
+    return 1
+  fi
+
+  declare -A counts=()
+  local -a lines
+  readarray -t lines < "$logfile"
+
+  local line ip
+  for line in "${lines[@]}"; do
+    ip=${line%% *}
+    if [[ -n "$ip" ]]; then
+      ((counts["$ip"]++))
+    fi
+  done
+
+  for ip in "${!counts[@]}"; do
+    printf "%d\t%s\n" "${counts[$ip]}" "$ip"
+  done | sort -rn | head -n 5
+}
+
+# если вызван напрямую — выполнить
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  top5_from_log "${1:-access.log}"
+fi
+
+
+
+Однострочник (быстрее и экономнее по памяти на больших файлах):
+
+
+awk '{print $1}' access.log | sort | uniq -c | sort -rn | head -n 5
+
+Короткое сравнение эффективности:
+
+Однострочник читает и обрабатывает по строчке, гораздо быстрее и менее требователен по памяти на больших файлах.
+Функция с readarray + ассоциативный массив: загружает весь файл в память. Bash-цикл значительно медленнее
+
